@@ -1,0 +1,12 @@
+set(SOURCES
+    ${SOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/JCookieJar.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/JCookieJar.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/jrequesthandler.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/jrequesthandler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/jresourceproxy.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/jresourceproxy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/jrequest.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/jrequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/broccoli.h
+    PARENT_SCOPE)

@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+
+from http.server import HTTPServer,SimpleHTTPRequestHandler
+from socketserver import BaseServer
+import ssl
+
+privkey = '/opt/certs/jimbertesting/privkey.pem'
+fullchain = '/opt/certs/jimbertesting/fullchain.pem'
+
+httpd = HTTPServer(('0.0.0.0', 8443), SimpleHTTPRequestHandler)
+httpd.socket = ssl.wrap_socket (httpd.socket, certfile=fullchain, keyfile=privkey, server_side=True)
+httpd.serve_forever()

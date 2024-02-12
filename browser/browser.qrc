@@ -1,0 +1,13 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+<qresource prefix="scripts/js">
+    <file alias="detectformscript.js">injectables/detectformscript.js</file>
+    <file alias="fillusernameandorpassword.js">injectables/fillusernameandorpassword.js</file>
+    <file alias="getusernameandpassword.js">injectables/getusernameandpassword.js</file>
+    <file alias="fieldobserver.js">injectables/fieldobserver.js</file>
+</qresource>
+<qresource prefix="scripts/sql">
+    <file alias="credentials.sql">injectables/passwordmanager/credentials.sql</file>
+    <file alias="master_credentials.sql">injectables/passwordmanager/master_credentials.sql</file>
+</qresource>
+</RCC>

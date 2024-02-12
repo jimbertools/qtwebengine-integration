@@ -1,0 +1,39 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+   overflow:auto;
+}
+
+body {
+
+    /* overflow: hidden; */
+    /* background-image: url('../img/ui/loading.gif'); */
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-position: center;
+    height:100%;
+}
+
+/* iframe {
+   border: 1px solid #000 !important;
+   overflow: scroll !important;
+} */
+
+#page-load-spinner {
+    position: absolute;
+    left: 5px;
+    top: 5px;
+    z-index: 4;
+    visibility: hidden;
+}
+
+/* @media print{
+    html, body {
+       width: 0px;
+       height: 0px;
+       overflow: 'hidden';
+    }
+} */

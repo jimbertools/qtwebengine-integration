@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="/js/polyfills/CSSStyleSheet.js"></script>
+    <script>
+      var constructedStyleSheets = {};
+
+      // let defaultBrowserStyleSheet = new CSSStyleSheet();
+      // this breaks the selection color on sporza (or everywhere)
+      // do we need this @johnk
+      //   ::selection {
+      //     background-color: rgba(59,143,251,255);
+      //     color: white;
+      //   }
+      //   ::-moz-selection {
+      //     background-color: rgba(59,143,251,255);
+      //     color: white;
+      //   }
+
+      // @font-face {
+      //     font-family: j-system-ui;
+      //     src: url("/fonts/Times_New_Roman.ttf");
+      //   }
+       
+      //   @font-face {
+      //     font-family: j-initial;
+      //     src: url("/fonts/DejaVuSans-Bold.ttf");
+      //   }
+
+      //   @font-face {
+      //     font-family: j-ui-sans-serif;
+      //     src: url("/fonts/DejaVuSans-Bold.ttf");
+      //   }
+      //   @font-face {
+      //     font-family: j-apple-system;
+      //     src: url("/fonts/DejaVuSans-Bold.ttf");
+      //   }
+
+      //   @font-face {
+      //     font-family: j-BlinkMacSystemFont;
+      //     src: url("/fonts/DejaVuSans-Bold.ttf");
+      //   }
+
+
+      // console.log("defaultBrowserStyleSheet.replaceSync", defaultBrowserStyleSheet.replaceSync)
+      // defaultBrowserStyleSheet.replaceSync(`
+      //   html {
+      //     font-family: "DejaVu Sans";
+      //   }
+
+      //   #jfakecanvas {
+      //       width: 100% !important;
+      //       height: 100% !important;
+      //       display: none !important;
+      //   }
+        
+      //   input:enabled:read-write:-webkit-any(:focus,.j-fake-hover)::-webkit-clear-button {
+      //       opacity: 1;
+      //       pointer-events: auto;
+      //   }
+        
+      //   input[type="search" i]:enabled:read-write:-webkit-any(:focus,.j-fake-hover)::-webkit-search-cancel-button {
+      //       opacity: 1;
+      //       pointer-events: auto;
+      //   }
+        
+      //   input:enabled:read-write:-webkit-any(:focus,.j-fake-hover)::-webkit-inner-spin-button {
+      //       opacity: 1;
+      //       pointer-events: auto;
+      //   }
+
+      //   input::-webkit-calendar-picker-indicator.j-fake-hover {
+      //       background-color: #eee;
+      //   }
+        
+      //   input:enabled:read-write:-webkit-any(:focus,.j-fake-hover)::-webkit-calendar-picker-indicator,
+      //   input::-webkit-calendar-picker-indicator:focus {
+      //       opacity: 1;
+      //       pointer-events: auto;
+      //   }
+      //   `);
+      // window.document.adoptedStyleSheets = [defaultBrowserStyleSheet];
+
+      window.addEventListener(
+        'message',
+        event => {
+          if (event.origin !== window.origin) return;
+
+          if (event.data.type == 'insertCssRuleCommand') {
+            constructedStyleSheets[event.data.command.constructedUUID].insertRule(
+              event.data.command.rule,
+              event.data.command.ruleIndex
+            );
+          }
+
+          if (event.data.type == 'deleteCssRuleCommand') {
+            constructedStyleSheets[event.data.command.constructedUUID].deleteRule(event.data.command.ruleIndex);
+          }
+
+          if (event.data.type == 'createConstructedStyleSheetCommand') {
+            constructedStyleSheets[event.data.command.constructedUUID] = new CSSStyleSheet();
+          }
+
+          if (event.data.type == 'setAdoptedStyleSheetsCommand') {
+            let constructedArray = [];
+            let element = window.document;
+            let shadowHost = document.querySelector(`[j-adopted-style-sheet="${event.data.command.nodeId}"]`);
+            if (shadowHost) {
+              element = shadowHost.shadowRoot;
+              shadowHost.removeAttribute('[j-adopted-style-sheet]');
+            }
+
+            for (let i = 0; i < event.data.command.constructedUUID.length; i++) {
+              const sheet = constructedStyleSheets[event.data.command.constructedUUID[i]];
+              constructedArray.push(sheet);
+            }
+
+            // constructedArray.push(defaultBrowserStyleSheet);
+
+            element.adoptedStyleSheets = [...constructedArray];
+          }
+
+          if (event.data.type == 'CSSStyleSheetReplaceCommand') {
+            if (event.data.command.sync) {
+              constructedStyleSheets[event.data.command.constructedUUID].replaceSync(event.data.command.replaceString);
+              return;
+            }
+            constructedStyleSheets[event.data.command.constructedUUID].replace(event.data.command.replaceString);
+          }
+        },
+        false
+      );
+    </script>
+  </head>
+
+  <body></body>
+</html>

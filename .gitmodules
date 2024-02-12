@@ -1,0 +1,6 @@
+[submodule "browser/src/3rdparty/HttpServer"]
+	path = browser/src/3rdparty/HttpServer
+	url = https://github.com/addisonElliott/HttpServer.git
+[submodule "browser/src/3rdparty/qtwebengine-dom"]
+	path = browser/src/3rdparty/qtwebengine-dom
+	url = git@labs.jimber.org:jimber/qtwebengine-dom.git

@@ -1,0 +1,57 @@
+TEMPLATE = app
+TARGET = browser
+RESOURCES = browser.qrc
+#QMAKE_CXXFLAGS += -Werror
+QMAKE_CXXFLAGS -= -Wunused-parameter
+
+CONFIG += debug c++17
+QT      +=  webenginewidgets \
+            websockets \
+            network \
+            multimedia \
+            sql 
+
+HEADERS =   src/jimberx264browser.h \
+            src/socketcommunication.h \
+            src/jimberx264webview.h \
+            src/jimberx264webpage.h \
+            src/jupload.h \
+            src/JCommandHandler.h \
+            src/jpopupwindow.h \
+            src/jnotificationhandler.h \
+            src/jrequestinterceptor.h \
+            src/passwordmanager/jpasswordmanager.h \
+            src/credentials.h \
+            src/jresourceproxy.h \
+            src/jrequesthandler.h \
+            src/jrequest.h \
+            src/broccoli.h \
+            src/proto.h
+
+SOURCES =   src/main.cpp \
+            src/jimberx264browser.cpp \
+            src/jimberx264webview.cpp \
+            src/jimberx264webpage.cpp \
+            src/jupload.cpp \
+            src/jxfiledownload.cpp \
+            src/jpopupwindow.cpp \
+            src/socketcommunication.cpp \
+            src/jxwindowcontroller.cpp \
+            src/jnotificationhandler.cpp \
+            src/jrequesthandler.cpp \
+            src/jrequest.cpp \
+            src/passwordmanager/jpasswordmanager.cpp \
+            src/jresourceproxy.cpp
+
+INCLUDEPATH += $$PWD/src/3rdparty/QtPromise
+LIBS += -lhttpServer -lbrotlienc -lbrotlidec
+
+INCLUDEPATH += $$(CUSTOM_WEB_ENGINE_DIR)
+
+
+DESTDIR = build
+OBJECTS_DIR = $$DESTDIR/.obj
+MOC_DIR = $$DESTDIR/.moc
+RCC_DIR = $$DESTDIR/.rcc
+UI_DIR = $$DESTDIR/.ui
+PCH_DIR = $$DESTDIR/.pch

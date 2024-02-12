@@ -1,0 +1,16 @@
+/*
+ * Copyright (c) Simon Brunel, https://github.com/simonbrunel
+ *
+ * This source code is licensed under the MIT license found in
+ * the LICENSE file in the root directory of this source tree.
+ */
+
+#ifndef QTPROMISE_MODULE_H
+#define QTPROMISE_MODULE_H
+
+#include "qpromise.h"
+#include "qpromiseconnections.h"
+#include "qpromisefuture.h"
+#include "qpromisehelpers.h"
+
+#endif // QTPROMISE_MODULE_H

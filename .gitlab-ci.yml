@@ -1,0 +1,435 @@
+#  _____   _   _   _   _    ____   ____         _      _   _   ____     __     __     _      ____    ____
+# |  ___| | | | | | \ | |  / ___| / ___|       / \    | \ | | |  _ \    \ \   / /    / \    |  _ \  / ___|
+# | |_    | | | | |  \| | | |     \___ \      / _ \   |  \| | | | | |    \ \ / /    / _ \   | |_) | \___ \
+# |  _|   | |_| | | |\  | | |___   ___) |    / ___ \  | |\  | | |_| |     \ V /    / ___ \  |  _ <   ___) |
+# |_|      \___/  |_| \_|  \____| |____/    /_/   \_\ |_| \_| |____/       \_/    /_/   \_\ |_| \_\ |____/
+workflow:
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH
+
+.make_dirs_copy_arts: &make_dirs_copy_arts
+  - mkdir docker/bins
+  - mkdir docker/libs
+  - mkdir docker/customqtwebengine
+  - cp browser/build/browser docker/bins/browser
+  - cp qpa/build/libJimberQPA.so docker/libs/libJimberQPA.so
+#  - cp /home/jimber/qtwebengine-video/lib/*.so.5 ./docker/customqtwebengine
+#  - cp /home/jimber/qtwebengine-video/lib/*.so.5.13.2 ./docker/customqtwebengine
+
+stages:
+  - proto_commands
+  - build
+  - build_docker
+  - deploy
+  - smoke
+#  _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____
+# |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____|
+#
+
+
+#   ____   _____   _   _   _____   ____       _      _
+#  / ___| | ____| | \ | | | ____| |  _ \     / \    | |
+# | |  _  |  _|   |  \| | |  _|   | |_) |   / _ \   | |
+# | |_| | | |___  | |\  | | |___  |  _ <   / ___ \  | |___
+#  \____| |_____| |_| \_| |_____| |_| \_\ /_/   \_\ |_____|
+generate:commands:
+  rules:
+  - when: on_success
+  stage: proto_commands
+  artifacts:
+    paths:
+      - ./browser/src/proto.h
+      - ./qpa/src/proto.h
+      - ./client/js/Proto.js
+  tags:
+    - builder
+  script:
+    - make proto
+
+build:browser:
+  rules:
+  - when: on_success
+  stage: build
+  artifacts:
+    paths:
+    - ./browser/build/browser
+  tags:
+    - builder
+  script:
+   - 'docker run -v $PWD:/opt/qtcodebuilder/code -u $(id -u ${USER}):$(id -g ${USER}) -e PRIVATE_TOKEN_GITLAB=$PRIVATE_TOKEN_GITLAB --rm qtcodebuilder:5.15.2 bash -c "cd /opt/qtcodebuilder/code && bash scripts/gitlab_ci_compile_browser.sh"'
+
+build:qpa:
+  rules:
+  - when: on_success
+  stage: build
+  artifacts:
+    paths:
+    - ./qpa/build/libJimberQPA.so
+  tags:
+    - builder
+  script:
+    - docker run -v $PWD:/opt/qtcodebuilder/code -u $(id -u ${USER}):$(id -g ${USER}) --rm  qtcodebuilder:5.15.2 bash -c "cd /opt/qtcodebuilder/code/qpa && qmake && make"
+
+build:spawner:
+  stage: build
+  tags:
+    - builder
+  script:
+    - '[ -z "$CI_COMMIT_TAG" ] && export CI_COMMIT_TAG=$CI_COMMIT_SHA'
+    - docker login $GITLAB_REGISTRY_URL -u $GITLAB_REGISTRY_LOGIN -p $GITLAB_REGISTRY_TOKEN
+    - mkdir -p spawner/dist
+    - cp -r client spawner/dist/www
+    - cp spawner/dist/www/config_deploy.js spawner/dist/www/config.js
+    - sed -i "s/{CI_COMMIT_BRANCH}/$CI_COMMIT_BRANCH/g" spawner/dist/www/config.js
+    - sed -i "s/{CI_COMMIT_SHA}/$CI_COMMIT_SHA/g" spawner/dist/www/config.js
+    - sed -i "s/{CI_COMMIT_TAG}/$CI_COMMIT_TAG/g" spawner/dist/www/config.js
+    - sed -i "s/{CI_DATE}/$(date +%s)/g" spawner/dist/www/config.js
+    - cd spawner && docker build . -t $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser_spawner:$CI_COMMIT_TAG
+    - cd spawner && [ ! -z "$CI_COMMIT_TAG" ] && docker build . -t $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser_spawner:$CI_COMMIT_TAG
+    - docker push $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser_spawner:$CI_COMMIT_TAG
+
+build:docker:
+  stage: build_docker
+  tags:
+    - builder
+  script:
+    - '[ -z "$CI_COMMIT_TAG" ] && export CI_COMMIT_TAG=$CI_COMMIT_SHA'
+    - docker login $GITLAB_REGISTRY_URL -u $GITLAB_REGISTRY_LOGIN -p $GITLAB_REGISTRY_TOKEN
+    - *make_dirs_copy_arts
+    - mkdir $PWD/docker/qtwebengine
+    - export CUSTOM_WEB_ENGINE_DIR=$PWD/docker/qtwebengine
+    - bash scripts/get_webengine_libs.sh
+    - rm $PWD/docker/qtwebengine/lib/*.debug
+    - cd docker && docker build --build-arg QT_CI_LOGIN=$QT_CI_LOGIN --build-arg QT_CI_PASSWORD=$QT_CI_PASSWORD --build-arg CACHEBUSTER=$(date +%s) --build-arg PRIVATE_TOKEN_GITLAB=$PRIVATE_TOKEN_GITLAB -t $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser:$CI_COMMIT_TAG .
+    - docker push $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser:$CI_COMMIT_TAG
+
+
+#  _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____
+# |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____|
+#
+
+
+#  _____   _____   ____    _____   ___   _   _    ____
+# |_   _| | ____| / ___|  |_   _| |_ _| | \ | |  / ___|
+#   | |   |  _|   \___ \    | |    | |  |  \| | | |  _
+#   | |   | |___   ___) |   | |    | |  | |\  | | |_| |
+#   |_|   |_____| |____/    |_|   |___| |_| \_|  \____|
+
+deploy:spawner:testing:
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  stage: deploy
+  environment: testing
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $STAGING == "true"'
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      when: never
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)\-[rR][cC]\d+$/'
+      when: never
+    - when: on_success
+  tags:
+    - deploy
+  script:
+    - docker login $GITLAB_REGISTRY_URL -u $GITLAB_REGISTRY_LOGIN -p $GITLAB_REGISTRY_TOKEN
+    - docker pull $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser_spawner:$CI_COMMIT_SHA
+    - docker rm -f browser|| true
+    - mkdir /opt/jimber/browser || true
+    - docker run -tid -v /var/run/docker.sock:/var/run/docker.sock -v /opt/jimber/downloads:/opt/jimber/browser/www/downloads --restart always --network jimberbrowser -e "BROWSER_VERSION=$CI_COMMIT_SHA" -e "ENVIRONMENT=testing" -e "DOMRENDERING_DISABLED=true" --name browser $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser_spawner:$CI_COMMIT_SHA
+    - docker network connect proxy browser
+
+deploy:browser:testing:
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  stage: deploy
+  environment: testing
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $STAGING == "true"'
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      when: never
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)\-[rR][cC]\d+$/'
+      when: never
+    - when: on_success
+  tags:
+    - deploy
+  script:
+    - docker login $GITLAB_REGISTRY_URL -u $GITLAB_REGISTRY_LOGIN -p $GITLAB_REGISTRY_TOKEN
+    - docker pull $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser:$CI_COMMIT_SHA
+
+testing:smoke:
+  stage: smoke
+  environment: testing
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $STAGING == "true"'
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      when: never
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)\-[rR][cC]\d+$/'
+      when: never
+    - when: on_success
+  tags:
+    - smoke
+  script:
+    - echo "smoking!"
+#  _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____
+# |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____|
+#
+
+
+#  _____   _____   ____    _____   ___   _   _    ____
+# |_   _| | ____| / ___|  |_   _| |_ _| | \ | |  / ___|   dom
+#   | |   |  _|   \___ \    | |    | |  |  \| | | |  _
+#   | |   | |___   ___) |   | |    | |  | |\  | | |_| |
+#   |_|   |_____| |____/    |_|   |___| |_| \_|  \____|
+
+deploy:spawner:testing:dom:
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  stage: deploy
+  environment: testing
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $STAGING == "true"'
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      when: never
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)\-[rR][cC]\d+$/'
+      when: never
+    - when: on_success
+  tags:
+    - deploy
+  script:
+    - docker login $GITLAB_REGISTRY_URL -u $GITLAB_REGISTRY_LOGIN -p $GITLAB_REGISTRY_TOKEN
+    - docker pull $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser_spawner:$CI_COMMIT_SHA
+    - docker rm -f browserdom || true
+    - mkdir /opt/jimber/browser || true
+    - docker run -tid -v /var/run/docker.sock:/var/run/docker.sock -v /opt/jimber/downloads:/opt/jimber/browser/www/downloads --restart always --network jimberbrowser -e "BROWSER_VERSION=$CI_COMMIT_SHA" -e "ENVIRONMENT=testing" --name browserdom $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser_spawner:$CI_COMMIT_SHA
+    - docker network connect proxy browserdom
+
+deploy:browser:testing:dom:
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  stage: deploy
+  environment: testing
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $STAGING == "true"'
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      when: never
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)\-[rR][cC]\d+$/'
+      when: never
+    - when: on_success
+  tags:
+    - deploy
+  script:
+    - docker login $GITLAB_REGISTRY_URL -u $GITLAB_REGISTRY_LOGIN -p $GITLAB_REGISTRY_TOKEN
+    - docker pull $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser:$CI_COMMIT_SHA
+
+testing:smoke:dom:
+  stage: smoke
+  environment: testing
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $STAGING == "true"'
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      when: never
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)\-[rR][cC]\d+$/'
+      when: never
+    - when: on_success
+  tags:
+    - smoke
+  script:
+    - echo "smoking!"
+#  _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____
+# |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____|
+#
+
+
+#  ____    _____      _       ____   ___   _   _    ____
+# / ___|  |_   _|    / \     / ___| |_ _| | \ | |  / ___|
+# \___ \    | |     / _ \   | |  _   | |  |  \| | | |  _
+#  ___) |   | |    / ___ \  | |_| |  | |  | |\  | | |_| |
+# |____/    |_|   /_/   \_\  \____| |___| |_| \_|  \____|
+
+deploy:spawner:staging:
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  stage: deploy
+  environment: staging
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)\-[rR][cC]\d+$/'
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "web" && $STAGING == "true"'
+      when: manual
+    - when: never
+  tags:
+    - deploy-stag
+  script:
+    - '[ -z "$CI_COMMIT_TAG" ] && export CI_COMMIT_TAG=$CI_COMMIT_SHA'
+    - docker login $GITLAB_REGISTRY_URL -u $GITLAB_REGISTRY_LOGIN -p $GITLAB_REGISTRY_TOKEN
+    - docker pull $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser_spawner:$CI_COMMIT_TAG
+    - docker rm -f jimberbrowser_spawner_staging || true
+    - docker run -tid -v /var/run/docker.sock:/var/run/docker.sock -v /opt/jimber/downloads:/opt/jimber/browser/www/downloads --restart always --network jimber_brokerv2_staging_net -e "ENVIRONMENT=staging" -e "BROWSER_VERSION=$CI_COMMIT_TAG" -e "DOMRENDERING_DISABLED=true" --name jimberbrowser_spawner_staging $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser_spawner:$CI_COMMIT_TAG
+    - docker network connect proxy jimberbrowser_spawner_staging
+
+deploy:browser:staging:
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  stage: deploy
+  environment: staging
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)\-[rR][cC]\d+$/'
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "web" && $STAGING == "true"'
+      when: manual
+    - when: never
+  tags:
+    - deploy-stag
+  script:
+    - '[ -z "$CI_COMMIT_TAG" ] && export CI_COMMIT_TAG=$CI_COMMIT_SHA'
+    - docker login $GITLAB_REGISTRY_URL -u $GITLAB_REGISTRY_LOGIN -p $GITLAB_REGISTRY_TOKEN
+    - docker pull $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser:$CI_COMMIT_TAG
+
+staging:smoke:
+  stage: smoke
+  environment: staging
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)\-[rR][cC]\d+$/'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web" && $STAGING == "true"'
+      when: on_success
+    - when: never
+  tags:
+    - smoke
+  script:
+    - curl $CI_ENVIRONMENT_URL
+    - curl $CI_ENVIRONMENT_URL/container
+#  _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____
+# |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____|
+#
+
+
+#  ____    _____      _       ____   ___   _   _    ____
+# / ___|  |_   _|    / \     / ___| |_ _| | \ | |  / ___| dom
+# \___ \    | |     / _ \   | |  _   | |  |  \| | | |  _
+#  ___) |   | |    / ___ \  | |_| |  | |  | |\  | | |_| |
+# |____/    |_|   /_/   \_\  \____| |___| |_| \_|  \____|
+
+deploy:spawner:staging:dom:
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  stage: deploy
+  environment: staging
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)\-[rR][cC]\d+$/'
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "web" && $STAGING == "true"'
+      when: manual
+    - when: never
+  tags:
+    - deploy-stag
+  script:
+    - '[ -z "$CI_COMMIT_TAG" ] && export CI_COMMIT_TAG=$CI_COMMIT_SHA'
+    - docker login $GITLAB_REGISTRY_URL -u $GITLAB_REGISTRY_LOGIN -p $GITLAB_REGISTRY_TOKEN
+    - docker pull $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser_spawner:$CI_COMMIT_TAG
+    - docker rm -f jimberbrowserdom_spawner_staging || true
+    - docker run -tid -v /var/run/docker.sock:/var/run/docker.sock -v /opt/jimber/downloads:/opt/jimber/browser/www/downloads --restart always --network jimber_brokerv2_staging_net -e "ENVIRONMENT=staging" -e "BROWSER_VERSION=$CI_COMMIT_TAG" --name jimberbrowserdom_spawner_staging $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser_spawner:$CI_COMMIT_TAG
+    - docker network connect proxy jimberbrowserdom_spawner_staging
+
+deploy:browser:staging:dom:
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  stage: deploy
+  environment: staging
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)\-[rR][cC]\d+$/'
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "web" && $STAGING == "true"'
+      when: manual
+    - when: never
+  tags:
+    - deploy-stag
+  script:
+    - '[ -z "$CI_COMMIT_TAG" ] && export CI_COMMIT_TAG=$CI_COMMIT_SHA'
+    - docker login $GITLAB_REGISTRY_URL -u $GITLAB_REGISTRY_LOGIN -p $GITLAB_REGISTRY_TOKEN
+    - docker pull $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser:$CI_COMMIT_TAG
+
+staging:smoke:
+  stage: smoke
+  environment: staging
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)\-[rR][cC]\d+$/'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web" && $STAGING == "true"'
+      when: on_success
+    - when: never
+  tags:
+    - smoke
+  script:
+    - curl $CI_ENVIRONMENT_URL
+    - curl $CI_ENVIRONMENT_URL/container
+    
+#  _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____   _____
+# |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____| |_____|
+#
+
+
+#  ____    ____     ___    ____    _   _    ____   _____   ___    ___    _   _
+# |  _ \  |  _ \   / _ \  |  _ \  | | | |  / ___| |_   _| |_ _|  / _ \  | \ | |
+# | |_) | | |_) | | | | | | | | | | | | | | |       | |    | |  | | | | |  \| |
+# |  __/  |  _ <  | |_| | | |_| | | |_| | | |___    | |    | |  | |_| | | |\  |
+# |_|     |_| \_\  \___/  |____/   \___/   \____|   |_|   |___|  \___/  |_| \_|
+
+deploy:spawner:production:
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  stage: deploy
+  environment: production
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)$/'
+      when: manual
+    - when: never
+  tags:
+    - deploy-prod
+  script:
+    - docker login $GITLAB_REGISTRY_URL -u $GITLAB_REGISTRY_LOGIN -p $GITLAB_REGISTRY_TOKEN
+    - docker pull $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser_spawner:$CI_COMMIT_TAG
+    - docker rm -f jimberbrowser_spawner || true
+    - docker run -tid -v /var/run/docker.sock:/var/run/docker.sock -v /opt/jimber/downloads:/opt/jimber/browser/www/downloads --restart always -p 80:80 --network jimber_brokerv2_net -e "ENVIRONMENT=production" -e "DOMRENDERING_DISABLED=true" -e "BROWSER_VERSION=$CI_COMMIT_TAG" --name jimberbrowser_spawner $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser_spawner:$CI_COMMIT_TAG
+
+deploy:browser:production:
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  stage: deploy
+  environment: production
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^[vV](\d+\.)?(\d+\.)?(\*|\d+)$/'
+      when: manual
+    - when: never
+  tags:
+    - deploy-prod
+  script:
+    - docker login $GITLAB_REGISTRY_URL -u $GITLAB_REGISTRY_LOGIN -p $GITLAB_REGISTRY_TOKEN
+    - docker pull $GITLAB_REGISTRY_URL/jimber/browser/jimberbrowser:$CI_COMMIT_TAG
+
+production:smoke:
+  stage: smoke
+  environment: production
+  only:
+    - /^[vV](\d+\.)?(\d+\.)?(\*|\d+)$/
+  tags:
+    - smoke
+  script:
+    - curl $CI_ENVIRONMENT_URL
+    - curl $CI_ENVIRONMENT_URL/container

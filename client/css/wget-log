@@ -1,0 +1,11 @@
+--2021-01-13 18:08:12--  https://fonts.googleapis.com/css2?family=Baloo+Thambi+2:wght@400
+Resolving fonts.googleapis.com (fonts.googleapis.com)... 216.58.214.10, 2a00:1450:400e:800::200a
+Connecting to fonts.googleapis.com (fonts.googleapis.com)|216.58.214.10|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: unspecified [text/css]
+Saving to: ‘css2?family=Baloo+Thambi+2:wght@400’
+
+css2?family=Baloo+Thambi+2:wght@400          [<=>                                                                              ]       0  --.-KB/s               css2?family=Baloo+Thambi+2:wght@400          [ <=>                                                                             ]     199  --.-KB/s    in 0s      
+
+2021-01-13 18:08:12 (17.4 MB/s) - ‘css2?family=Baloo+Thambi+2:wght@400’ saved [199]
+

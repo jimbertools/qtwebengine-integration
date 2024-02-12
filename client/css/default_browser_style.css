@@ -1,0 +1,45 @@
+::selection {
+    background-color: rgba(59,143,251,255);
+    color: white;
+}
+
+::-moz-selection {
+    background-color: rgba(59,143,251,255);
+    color: white;
+}
+
+@font-face {
+    font-family: JimberDefault;
+    src: url(/fonts/DejaVuSerif-Bold.ttf);
+}
+
+html {
+    font-family: "JimberDefault";
+    font-weight: 400;
+    font-size: 16px;
+}
+ 
+ input:enabled:read-write:-webkit-any(:focus,.j-fake-hover)::-webkit-clear-button {
+     opacity: 1;
+     pointer-events: auto;
+ }
+ 
+ input[type="search" i]:enabled:read-write:-webkit-any(:focus,.j-fake-hover)::-webkit-search-cancel-button {
+     opacity: 1;
+     pointer-events: auto;
+ }
+ 
+ input:enabled:read-write:-webkit-any(:focus,.j-fake-hover)::-webkit-inner-spin-button {
+     opacity: 1;
+     pointer-events: auto;
+ }
+
+ input::-webkit-calendar-picker-indicator.j-fake-hover {
+     background-color: #eee;
+ }
+ 
+ input:enabled:read-write:-webkit-any(:focus,.j-fake-hover)::-webkit-calendar-picker-indicator,
+ input::-webkit-calendar-picker-indicator:focus {
+     opacity: 1;
+     pointer-events: auto;
+ }
